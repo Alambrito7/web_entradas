@@ -2,6 +2,33 @@
 
 @section('title', 'Editar Usuario')
 
+@section('styles')
+<style>
+    .role-selector-card {
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+
+    .role-selector-card:hover {
+        border-color: #667eea;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+    }
+
+    .role-selector-card.selected {
+        border-color: #667eea;
+        background: rgba(102, 126, 234, 0.05);
+    }
+
+    .role-info {
+        margin-left: 2rem;
+    }
+</style>
+@endsection
+
 @section('content')
 <div class="row justify-content-center">
     <div class="col-md-8">
@@ -149,6 +176,72 @@
 
                     <hr>
 
+                    <!-- NUEVO: Selector de Rol -->
+                    @if(auth()->user()->isAdminOrAbove() && isset($roles) && $roles->count() > 0)
+                        <div class="mb-3">
+                            <h5 class="text-primary mb-3">
+                                <i class="bi bi-shield-check"></i> Rol del Usuario
+                            </h5>
+
+                            @if($user->isSuperadmin() && !auth()->user()->isSuperadmin())
+                                <div class="alert alert-warning">
+                                    <i class="bi bi-lock"></i>
+                                    <strong>Protegido:</strong> Solo otro Superadmin puede cambiar el rol de este usuario.
+                                </div>
+                                <input type="hidden" name="role_id" value="{{ $user->role_id }}">
+                            @else
+                                <!-- Opción Sin Rol -->
+                                <div class="role-selector-card {{ old('role_id', $user->role_id) === null ? 'selected' : '' }}" 
+                                     onclick="selectRole('none')">
+                                    <div class="form-check">
+                                        <input class="form-check-input" 
+                                               type="radio" 
+                                               name="role_id" 
+                                               id="roleNone" 
+                                               value=""
+                                               {{ old('role_id', $user->role_id) === null ? 'checked' : '' }}>
+                                        <label class="form-check-label" for="roleNone">
+                                            <strong>Sin Rol</strong>
+                                        </label>
+                                    </div>
+                                    <div class="role-info">
+                                        <small class="text-muted">Usuario con acceso limitado al sistema</small>
+                                    </div>
+                                </div>
+
+                                @foreach($roles as $role)
+                                    <div class="role-selector-card {{ old('role_id', $user->role_id) == $role->id ? 'selected' : '' }}" 
+                                         onclick="selectRole({{ $role->id }})">
+                                        <div class="form-check">
+                                            <input class="form-check-input" 
+                                                   type="radio" 
+                                                   name="role_id" 
+                                                   id="role{{ $role->id }}" 
+                                                   value="{{ $role->id }}"
+                                                   {{ old('role_id', $user->role_id) == $role->id ? 'checked' : '' }}>
+                                            <label class="form-check-label" for="role{{ $role->id }}">
+                                                <strong>{{ $role->nombre }}</strong>
+                                                @if($role->nombre === 'Superadmin')
+                                                    <i class="bi bi-star-fill text-danger"></i>
+                                                @elseif($role->nombre === 'Administrador')
+                                                    <i class="bi bi-shield-check text-primary"></i>
+                                                @elseif($role->nombre === 'Encargado')
+                                                    <i class="bi bi-person-badge text-warning"></i>
+                                                @else
+                                                    <i class="bi bi-person text-secondary"></i>
+                                                @endif
+                                            </label>
+                                        </div>
+                                        <div class="role-info">
+                                            <small class="text-muted">{{ $role->descripcion }}</small>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            @endif
+                        </div>
+                        <hr>
+                    @endif
+
                     <div class="alert alert-warning">
                         <i class="bi bi-exclamation-triangle"></i> 
                         <strong>Cambiar Contraseña:</strong> Solo complete estos campos si desea cambiar la contraseña. 
@@ -219,6 +312,40 @@
 
 @section('scripts')
 <script>
+    // NUEVO: Función para seleccionar rol
+    function selectRole(roleId) {
+        // Deseleccionar todos
+        document.querySelectorAll('.role-selector-card').forEach(card => {
+            card.classList.remove('selected');
+        });
+        
+        // Seleccionar el radio button
+        let radio;
+        if (roleId === 'none') {
+            radio = document.getElementById('roleNone');
+        } else {
+            radio = document.getElementById('role' + roleId);
+        }
+        
+        if (radio) {
+            radio.checked = true;
+            // Agregar clase selected al card
+            radio.closest('.role-selector-card').classList.add('selected');
+        }
+    }
+
+    // NUEVO: Event listeners para los roles
+    document.querySelectorAll('.role-selector-card input[type="radio"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            document.querySelectorAll('.role-selector-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            if (this.checked) {
+                this.closest('.role-selector-card').classList.add('selected');
+            }
+        });
+    });
+
     // Toggle password visibility
     document.getElementById('togglePassword').addEventListener('click', function() {
         const password = document.getElementById('password');
@@ -267,11 +394,14 @@
 
     // Capitalizar primera letra automáticamente
     ['nombre', 'apellido_paterno', 'apellido_materno'].forEach(function(field) {
-        document.getElementById(field).addEventListener('blur', function() {
-            if (this.value) {
-                this.value = this.value.charAt(0).toUpperCase() + this.value.slice(1).toLowerCase();
-            }
-        });
+        const element = document.getElementById(field);
+        if (element) {
+            element.addEventListener('blur', function() {
+                if (this.value) {
+                    this.value = this.value.charAt(0).toUpperCase() + this.value.slice(1).toLowerCase();
+                }
+            });
+        }
     });
 </script>
 @endsection
